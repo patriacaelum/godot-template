@@ -1,7 +1,7 @@
+# The `StateMachine` manages `State` classes that manage the state of the root
+# node.
 class_name StateMachine
 extends Node
-# The `StateMachine` manages its child `State` classes that manage the state of
-# the root node.
 
 
 @export var initial_state: State.STATENAME
@@ -38,25 +38,45 @@ func update(delta: float) -> void:
     self.__top().update(delta)
 
 
+# Called when the top state sends a `finished` signal.
+# This is typically called when the top state has completed and has no further
+# actions to take, so the entity is reverted to its previous state.
 func _on_finished_state() -> void:
-    self.__remove_top()
+    self.__top().exit()
+    self.__tda.pop_back()
     self.__top().enter()
 
 
-func _on_property_set_state(state_name: State.STATENAME, property: StringName, value) -> void:
+# Called when the top state send a `property_set` signal.
+# This is typically called when a state needs to tell the next incoming state
+# information about the current state.
+func _on_property_set_state(
+    state_name: State.STATENAME,
+    property: StringName,
+    value,
+) -> void:
     self.__states[state_name].set(property, value)
 
 
-func _on_state_changed_state(state_name: State.STATENAME) -> void:
-    self.__remove_top()
+# Called when the top state needs to change state.
+# This is typically called when the top state needs to change to a different
+# state, and the new state is added to the stack.
+# The top state can also optionally indicate if it has completed, in which case
+# it will be removed from the stack first. Otherwise, once the new state has
+# completed, the current state will be re-entered.
+func _on_state_changed_state(
+    state_name: State.STATENAME,
+    finished: bool = false,
+) -> void:
+    self.__top().exit()
+
+    if finished:
+        self.__tda.pop_back()
+
     self.__tda.append(state_name)
     self.__top().enter()
 
 
-func __remove_top() -> void:
-    self.__top().exit()
-    self.__tda.pop_back()
-
-
+# Shorthand for the top state.
 func __top() -> State:
     return self.__states[self.__tda[-1]]
